@@ -1048,4 +1048,3 @@ export async function main(cookie) {
     }
     eventBus.emit('Turn_on_the_Monitor');
     BiliAPI.sendChat('456295362727813281', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
-}
