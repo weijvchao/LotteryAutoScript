@@ -1,0 +1,1136 @@
+# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of从'events'导入{ EventEmitter }  ; 
+ 从'./node/HttpRequest.js'导入{  HttpRequest  }  ; 
+const  Script  =  {
+    版本：“ |版本：3.6.5 |在nodejs中” ，
+    作者：'@shanmite' ，
+    UID：[ ] ，
+    标记：[
+        '抽奖' ，
+        “互动抽奖” ，
+        '转发抽奖' ，
+        “动态抽奖” ，
+    ]
+}
+/ **
+ *默认设置
+ * /
+让 config  =  {
+    型号：'01' ，/ *均为* /
+    chatmodel：'01 ' ，/ *都* /
+    maxday：'-1' ， / *不限* /
+    等待：'60000' ， / * 60s * /
+    minfollower：'500' ，/ *最少500人关注* /
+    黑名单：'' ，
+    白名单：'' ，
+    relay：[ '转发动态' ] ，
+    聊天：[
+        '[OK]' ， '[星星眼]' ， '[歪嘴]' ， '[喜欢]' ， '[偷笑]' ， '[笑]' ， '[喜极而泣]' ， '[辣眼睛] ' ， '[吃瓜]' ， '[奋斗]' ，
+        “永不缺席永不中奖永不放弃！” ， “万一呢” ， “在” ， “冲吖〜” ， “来了” ， “万一” ， “ [保佑] [保佑]” ， “从未中，从未停' ， '[吃瓜]' ， '[抠鼻] [抠鼻]' ，
+        '来力' ， '秋梨膏' ， '[呲牙]' ， '从不缺席' ， '分子' ， '可以' ， '恰' ， '不会吧' ， '1' ， '好' ，
+        “ rush” ， “来来来” ， “ ok” ， “冲” ， “凑热闹” ， “我要我要[打电话]” ， “我还能中！让我中！！！” ， “大家都散了吧，已经抽完了，是我的' ， '我是天选之子' ， '给我中一次吧！' ，
+        '坚持不懈，迎难而上，开拓创新！” ， “ [OK] [OK]” ， “我来抽个奖” ， “中中中中中中” ， “ [doge] [doge] [doge] ' ， '我我我' ，
+    ] ，
+}
+/ **
+ *基础工具
+ * /
+const  Base  =  {
+    / **
+     *安全的将JSON字符串转为对象
+     *超出精度的数转为轴向
+     * @param {字符串} params
+     * @return { object }
+     *返回对象
+     * /
+    strToJson：参数 =>  {
+        让 isJSON  =  str  =>  {
+            如果 （typeof  str  ===  'string' ） {
+                尝试 {
+                    var  obj  =  JSON 。解析（str ）;
+                    如果 （typeof  obj  ===  'object'  &&  obj ） {
+                        返回 true ;
+                    } 其他 {
+                        返回 false ;
+                    }
+                } 抓住 （e ） {
+                    控制台。错误（'错误：'  +  str  +  '!!!'  +  e ）;
+                    返回 false ;
+                }
+            }
+            控制台。错误（“它不是字符串！” ）
+        }
+        如果 （isJSON （params ）） {
+            让 obj  =  JSON 。解析（params ）;
+            返回 obj
+        } 其他 {
+            返回 { }
+        }
+    } ，
+    / **
+     *函数柯里化
+     * @param {函数} func
+     *要被柯里化的函数
+     * @returns {函数}
+     *一次接受一个参数并返回一个接受余下参数的函数
+     * /
+    curryify：func  =>  {
+        函数 _c （restNum ， argsList ） {
+            返回 restNum  ===  0吗？
+                FUNC 。apply （null ， argsList ）：
+                函数 （x ） {
+                    返回 _c （restNum  -  1 ， argsList 。CONCAT （X ））;
+                } ;
+        }
+        返回 _c （FUNC 。长度， [ ] ）;
+    } ，
+    / **
+     *延迟函数
+     * @param { number } time ms
+     * @returns { Promise <void> }
+     * /
+    延迟：时间 =>  {
+        返回 新的 Promise （resolve  =>  {
+            setTimeout （（） =>  {
+                解决（）
+            } ， 时间）
+        } ）
+    } ，
+    / **
+     *随机获取字符串分段中的字符串
+     * @param { string [] } arr
+     * @returns {字符串}
+     * /
+    getRandomStr：arr  =>  {
+        返回 ARR [ parseInt函数（数学式。随机（） * ARR 。长度）]
+    } ，
+}
+/ **
+ *事件总线
+ * /
+const  eventBus  =  （（） =>  {
+    const  eTarget  = 新的 EventEmitter （）
+        ， 模块 =  {
+            on：（type ， fn ） =>  {
+                eTarget 。addListener （类型， fn ）;
+            } ，
+            EMIT：（类型） =>  {
+                eTarget 。发出（类型）;
+            } ，
+            关：（）=> {
+                eTarget 。关闭（）
+            }
+        }
+    返回 模块;
+} ）（）
+/ **
+ *托管变量
+ * /
+const  GlobalVar  =  {
+    cookie：'' ，
+    / **自己的UID * /
+    myUID：'' ，
+    / **防跨站请求伪造* /
+    csrf：“ ，
+    / **
+     *抽奖信息
+     * @type {（string | number）[]}
+     * /
+    彩票：（（） =>  {
+        返回 Script 。UID 。的concat （脚本。的TAG ）;
+    } ）（），
+} ;
+/ **
+ * Ajax请求对象
+ * /
+const  Ajax  =  （（） =>  {
+    const  get  =  （{
+        URL ，
+        queryStringsObj ，
+        成功
+    } ） =>  {
+        HttpRequest （{
+            类型：“ GET” ，
+            _url：url ，
+            _query_string：queryStringsObj ，
+            标头：{
+                'User-Agent'：'Mozilla / 5.0（Windows NT 10.0; Win64; x64）AppleWebKit / 537.36（KHTML，like Gecko）Chrome / 83.0.4103.116 Safari / 537.36' ，
+                接受：'application / json，text / plain，* / *' ，
+                Cookie：GlobalVar 。Cookie ，
+            } ，
+            成功：成功，
+            错误：（res ）=> {
+                控制台。日志（res ）;
+            }
+        } ）
+    } ;
+    const  post  =  （{
+        URL ，
+        数据，
+        成功
+    } ） =>  {
+        HttpRequest （{
+            类型：“ POST” ，
+            _url：url ，
+            内容：数据，
+            标头：{
+                'User-Agent'：'Mozilla / 5.0（Windows NT 10.0; Win64; x64）AppleWebKit / 537.36（KHTML，like Gecko）Chrome / 83.0.4103.116 Safari / 537.36' ，
+                接受：'application / json，text / plain，* / *' ，
+                'Content-Type'：'application / x-www-form-urlencoded; charset = utf-8' ，
+                Cookie：GlobalVar 。Cookie ，
+            } ，
+            成功：成功，
+            错误：（res ）=> {
+                控制台。日志（res ）;
+            }
+        } ）
+    } ;
+    返回 { get ， post } ;
+} ）（）
+/ **
+ *网络请求
+ * /
+const  BiliAPI  =  {
+    / **
+     *获取被at的信息
+     * @returns {
+        承诺<{
+            时间：字符串；
+            昵称：字符串；
+            业务：字符串；
+            source_content：字符串;
+            网址：字符串
+        } [] | []>
+    }
+     * /
+    getMyAtInfo：异步 （）=> {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：“ https://api.bilibili.com/x/msgfeed/at” ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    const  res  =  Base 。strToJson （responseText ）;
+                    const  atInfo  =  [ ] ；
+                    如果 （RES 。代码 ===  0 ） {
+                        const  items  =  res 。数据。项目;
+                        if  （项目。长度！== 0 ） {
+                            项目。forEach （i  =>  {
+                                const  { at_time ， item ， user }  =  i
+                                    ， 时间 =  （新 日期（at_time * 1000 ））。toLocaleString （）
+                                    ， {昵称}  = 用户
+                                    ， {业务， uri：url  ， source_content }  = 项目;
+                                atInfo 。推（{
+                                    时间，
+                                    昵称，
+                                    业务，
+                                    source_content ，
+                                    网址
+                                } ）
+                            } ）
+                        } 
+                        解析（atInfo ）;
+                    } 其他 {
+                        解决（atInfo ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *获取关注列表
+     * @param { number } uid
+     * @returns { Promise <string | null> }
+     * /
+    getAttentionList：uid  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：“ https://api.vc.bilibili.com/feed/v1/feed/get_attention_list” ，
+                queryStringsObj：{
+                    uid：uid
+                } ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    让 res  =  Base 。strToJson （responseText ）
+                    如果 （RES 。代码 ===  0 ） {
+                        控制台。log （'[获取关注列表]成功' ）;
+                        决心（RES 。数据。名单。的toString （））
+                    } 其他 {
+                        控制台。log （`[获取关注列表]失败\ n $ { responseText } ` ）;
+                        解析（null ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *获取一组动态的信息
+     * @param {数字} UID
+     *被查看者的uid
+     * @param {字符串}偏移量
+     *此动态偏移量
+     *初始为0
+     * @returns { Promise <string> }
+     * /
+    getOneDynamicInfoByUID：（UID ， offset ） =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：'https : //api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history' ，
+                queryStringsObj：{
+                    visitor_uid：GlobalVar 。myUID ，
+                    host_uid：UID ，
+                    offset_dynamic_id：偏移量，
+                } ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    / *鉴别工作交由modifyDynamicRes完成* /
+                    解决（responseText ）
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *通过标签名获取tag的id
+     * @param {字符串} tagename
+     *标签名
+     * @returns { Promise <number | -1> }
+     *正确：tag_ID  
+     *错误：-1
+     * /
+    getTagIDByTagName：tagename  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：“ https://api.bilibili.com/x/tag/info” ，
+                queryStringsObj：{
+                    TAG_NAME：tagename
+                } ，
+                hasCookies：false ，
+                成功：responseText  =>  {
+                    const  res  =  Base 。strToJson （responseText ）;
+                    如果 （RES 。代码！== 0 ） {
+                        控制台。日志（'获取TagID失败' ）;
+                        决心（- 1 ）
+                    }
+                    决心（RES 。数据。TAG_ID ）
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *获取标签下的热门动态以及一条最新动态
+     * @param { number } tagid
+     * @returns { Promise <string> }
+     * /
+    getHotDynamicInfoByTagID：tagid  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：“ https://api.vc.bilibili.com/topic_svr/v1/topic_svr/topic_new” ，
+                queryStringsObj：{
+                    topic_id：tagid
+                } ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    解决（responseText ）
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *获取标签下的最新动态
+     * @param {字符串}标记名
+     * @param {字符串}偏移量
+     * @returns { Promise <string> }
+     * /
+    getOneDynamicInfoByTag：（标记名， 偏移量） =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：“ https://api.vc.bilibili.com/topic_svr/v1/topic_svr/topic_history” ，
+                queryStringsObj：{
+                    topic_name：标记名，
+                    offset_dynamic_id：偏移量
+                } ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    解决（responseText ）
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *获取关注数
+     * @param { number } uid
+     * @returns { Promise <number | 0> }
+     * /
+    getUserInfo：uid  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：'https : //api.bilibili.com/x/web-interface/card' ，
+                queryStringsObj：{
+                    中：uid ，
+                    照片：假
+                } ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    const  res  =  Base 。strToJson （responseText ）;
+                    如果 （RES 。代码 ===  0 ） {
+                        决心（RES 。数据。跟随）
+                    } 其他 {
+                        控制台。log （'获取关注数错误，可能是访问过重复' ）;
+                        解决（0 ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *获取开奖信息
+     * @param {字符串} dyid
+     *动态ID
+     * @returns {
+        承诺<{
+            ts：number | 0;
+            text：string |'获取开奖信息失败';
+            item：string |'null';
+            isMe：string |'未知';
+        }>
+    }开奖时间
+     * /
+    getLotteryNotice：dyid  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：'https : //api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice' ，
+                queryStringsObj：{
+                    dynamic_id：dyid
+                } ，
+                hasCookies：false ，
+                成功：responseText  =>  {
+                    const  res  =  Base 。strToJson （responseText ）;
+                    / （？< = _prize_cmt“：” ）。* （？= “ ） / 。EXEC （）
+                    如果 （RES 。代码 ===  0 ） {
+                        const  timestamp10  =  res 。数据。抽奖时间，
+                            timestamp13  =  timestamp10 * 1000 ，
+                            时间 = 新 日期（timestamp13 ）;
+                        const 保持 =  （（） =>  {
+                            常量 TIMESTR  =  （（timestamp13  - 日期。现在（）） / 86400000 ）。toString （）
+                                ， timearr  =  timestr 。替换（/ （\ d + ）\。（\ d + ） / ， “ $ 1,0。$ 2” ）。split （'，' ）;
+                            const  text  =  timearr [ 0 ] [ 0 ]  ===  '-'吗？`开奖时间已过$ { timearr [ 0 ] 。substring （1 ）}天余$ { parseInt （timearr [ 1 ] * 24 ）}小时`：`还有$ { timearr [ 0 ] }天余$ { parseInt （timearr [ 1 ] *24 ）}小时`;
+                            返回 文字
+                        } ）（）;
+                        让 isMeB  =  （新 的RegExp （GlobalVar 。myUID ））。测试（responseText ）;
+                        const  isMe  =  isMeB吗？'中奖了！！！'：'未中奖' ;
+                        const  iteminfo  =  res 。数据。first_prize_cmt  ||  ''  +  ''  +  res 。数据。second_prize_cmt  ||  ''  +  ''  +  res 。数据。third_prize_cmt  ||  '' ;
+                        决心（{
+                            ts：timestamp10 ，
+                            文字：`开奖时间：$ { time 。toLocaleString （）}  $ {保持} ` ，
+                            item：iteminfo ，
+                            isMe：isMe
+                        } ）;
+                    } 其他 {
+                        控制台。log （`获取开奖信息失败\ n $ { responseText } ` ）；
+                        决心（{
+                            ts：0 ，
+                            文字：“获取开奖信息失败” ，
+                            item：'null' ，
+                            isMe：“未知”
+                        } ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *之前不检查是否重复关注
+     *自动关注
+     *并转移分组
+     * @param { Number } uid
+     *被关注者的UID
+     * @returns { Promise <1 | 0> }
+     * /
+    autoAttention：uid  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。帖子（{
+                网址：“ https://api.bilibili.com/x/relation/modify” ，
+                hasCookies：true ，
+                dataType：'application / x-www-form-urlencoded' ，
+                数据：{
+                    fid：uid ，
+                    行动：1 ，
+                    re_src：11 ，
+                    csrf：GlobalVar 。csrf
+                } ，
+                成功：responseText  =>  {
+                    / *重复关注代码也等于0 * /
+                    如果 （/ ^ { “代码”：0 / 。试验（responseText的）） {
+                        控制台。log （'[自动关注]关注+1' ）;
+                        解决（1 ）
+                    } 其他 {
+                        控制台。log （`[自动关注]失败\ n $ { responseText } ` ）;
+                        解决（0 ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *移动分区
+     * @param { number } uid
+     * @param { number } tagid关注分区的ID
+     * @returns { Promise <1 | 0> }
+     * /
+    movePartition：（uid ， tagid ） =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。帖子（{
+                网址：“ https://api.bilibili.com/x/relation/tags/addUsers” ，
+                hasCookies：true ，
+                dataType：'application / x-www-form-urlencoded' ，
+                数据：{
+                    fids：uid ，
+                    tagids：tagid ，
+                    csrf：GlobalVar 。csrf
+                } ，
+                成功：responseText  =>  {
+                    / *重复移动代码也等于0 * /
+                    如果 （/ ^ { “代码”：0 / 。试验（responseText的）） {
+                        控制台。log （'[移动分区] up主分区移动成功' ）;
+                        解决（1 ）
+                    } 其他 {
+                        控制台。log （`[[移动分区] up主分区移动失败\ n $ { responseText } ` ）；
+                        解决（0 ）
+                    }
+                }
+            } ）
+        } ）;
+
+    } ，
+    / **
+     *取消关注
+     * @param { number } uid
+     * @returns { void }
+     * /
+    cancelAttention：uid  =>  {
+        阿贾克斯。帖子（{
+            网址：“ https://api.bilibili.com/x/relation/modify” ，
+            hasCookies：true ，
+            dataType：'application / x-www-form-urlencoded' ，
+            数据：{
+                fid：` $ { uid } ` ，
+                行动：2 ，
+                re_src：11 ，
+                jsonp：'jsonp' ，
+                csrf：GlobalVar 。csrf
+            } ，
+            成功：responseText  =>  {
+                const  res  =  Base 。strToJson （responseText ）
+                如果 （RES 。代码 ===  0 ） {
+                    控制台。日志（'[自动取关]取关成功' ）
+                } 其他 {
+                    控制台。日志（`[自动取关]取关失败\ n $ { responseText } ` ）
+                }
+            }
+        } ）
+    } ，
+    / **
+     *动态自动点赞
+     * @param {字符串} dyid
+     * @returns { Promise <1 | 0> }
+     * /
+    autolike：dyid  =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。帖子（{
+                网址：'https : //api.vc.bilibili.com/dynamic_like/v1/dynamic_like/thumb' ，
+                hasCookies：true ，
+                dataType：'application / x-www-form-urlencoded' ，
+                数据：{
+                    uid：GlobalVar 。myUID ，
+                    dynamic_id：dyid ，
+                    上：1 ，
+                    csrf：GlobalVar 。csrf
+                } ，
+                成功：responseText  =>  {
+                    如果 （/ ^ { “代码”：0 / 。试验（responseText的）） {
+                        控制台。log （'[自动点赞]点赞成功' ）;
+                        解决（1 ）;
+                    } 其他 {
+                        控制台。log （`[转发动态]点赞失败\ n $ { responseText } ` ）;
+                        解决（0 ）;
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *转发前因查看是否重复转发
+     *自动转发
+     * @param { Number } uid
+     *自己的UID
+     * @param {字符串} dyid
+     *动态的ID
+     * @returns { Promise <1 | 0> }
+     * /
+    autoRelay：（uid ， dyid ） =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。帖子（{
+                网址：'https : //api.vc.bilibili.com/dynamic_repost/v1/dynamic_repost/repost' ，
+                hasCookies：true ，
+                dataType：'application / x-www-form-urlencoded' ，
+                数据：{
+                    uid：` $ { uid } ` ，
+                    dynamic_id：dyid ，
+                    内容：基础。getRandomStr （配置。中继），
+                    扩展名：'{“ emoji_type”：1}' ，
+                    csrf：GlobalVar 。csrf
+                } ，
+                成功：responseText  =>  {
+                    如果 （/ ^ { “代码”：0 / 。试验（responseText的）） {
+                        控制台。log （'[转发动态]成功转发一条动态' ）;
+                        解决（1 ）
+                    } 其他 {
+                        控制台。log （`[转发动态]转发动态失败\ n $ { responseText } ` ）;
+                        解决（0 ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *可移除动态
+     * @param {字符串} dyid
+     * @returns { void }
+     * /
+    rmDynamic：dyid  =>  {
+        阿贾克斯。帖子（{
+            网址：'https : //api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/rm_dynamic' ，
+            hasCookies：true ，
+            dataType：'application / x-www-form-urlencoded' ，
+            数据：{
+                dynamic_id：dyid ，
+                csrf：GlobalVar 。csrf
+            } ，
+            成功：responseText  =>  {
+                如果 （/ ^ { “代码”：0 / 。试验（responseText的）） {
+                    控制台。log （'[删除动态]成功删除一条动态' ）;
+                } 其他 {
+                    控制台。log （`[删除动态]删除动态失败\ n $ { responseText } ` ）;
+                }
+            }
+        } ）
+    } ，
+    / **
+     *发送评论
+     * @param {字符串}
+     * cid_str
+     * @param {字符串} msg
+     * @param { number }类型
+     * 1（视频）  
+     * 11（有图）  
+     * 17（无图）  
+     * @returns { Promise <1 | 0> }
+     * /
+    sendChat：（rid ， msg ， type ， show =  true ） =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。帖子（{
+                网址：'https : //api.bilibili.com/x/v2/reply/add' ，
+                hasCookies：true ，
+                dataType：'application / x-www-form-urlencoded' ，
+                数据：{
+                    oid：rid ，
+                    类型：类型，
+                    讯息：味精，
+                    jsonp：'jsonp' ，
+                    csrf：GlobalVar 。csrf
+                } ，
+                成功：responseText  =>  {
+                    如果 （/ ^ { “代码”：0 / 。试验（responseText的）） {
+                        显示？控制台。log （'[自动评论]评论成功' ）：无效 0 ;
+                        解决（1 ）
+                    } 其他 {
+                        显示？控制台。log （'[自动评论]评论失败' ）：无效 0 ;
+                        解决（0 ）
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+    / **
+     *检查分区  
+     *不存在指定分区时创建  
+     *获取到tagid添加为对象的属性  
+     * @returns { Promise <number> }
+     * /
+    checkMyPartition：（） =>  {
+        返回 新的 Promise （（resolve ） =>  {
+            阿贾克斯。得到（{
+                网址：“ https://api.bilibili.com/x/relation/tags” ，
+                queryStringsObj：{
+                    // jsonp：“ jsonp”，
+                    //回调：“ __ jp14”
+                } ，
+                hasCookies：true ，
+                成功：responseText  =>  {
+                    如果 （！/此处存放因抽奖临时关注的上/ 。测试（responseText的）） {
+                        / *如果不存在就新建一个* /
+                        阿贾克斯。帖子（{
+                            网址：'https : //api.bilibili.com/x/relation/tag/create?cross_domain=true' ，
+                            hasCookies：true ，
+                            dataType：'application / x-www-form-urlencoded' ，
+                            数据：{
+                                标记：“此处存放因抽奖临时关注的” ，
+                                csrf：GlobalVar 。csrf
+                            } ，
+                            成功：responseText  =>  {
+                                让 obj  =  Base 。strToJson （responseText ）;
+                                如果 （OBJ 。代码 ===  0 ） {
+                                    控制台。日志（'[新建分区]分区新建成功' ）
+                                    让 tagid  =  obj 。数据。tagid  / *获取tagid * /
+                                    解决（tagid ）
+                                }
+                            }
+                        } ）
+                    } 其他 {
+                        / *此处可能会出现问题* /
+                        let  tagid  =  / [ 0-9 ] * （？=，“ name”：“此处放置因抽奖临时关注的up” ） / 。exec （responseText ）[ 0 ]  / *获取tagid * /
+                        解析（Number （tagid ））
+                    }
+                }
+            } ）
+        } ）;
+    } ，
+}
+/ **
+ *基础功能
+ * /
+ 公共 类{
+    构造函数（） {  }
+    / **
+     *检查所有的动态信息
+     * @param {字符串} UID
+     *指定的用户UID
+     * @param { number }页
+     *读取页数
+     * @returns {
+        承诺<{
+            uid：数字；
+            dynamic_id：字符串；
+            描述：字符串；
+            类型：字符串；
+            origin_uid：字符串；
+            origin_uname：字符串；
+            origin_rid_str：字符串；
+            origin_dynamic_id：字符串；
+            origin_hasOfficialLottery：布尔值；
+            origin_description：字符串；
+            origin_type：字符串；
+        } []>
+    }获取前一页* 12个动态信息
+     * /
+    异步 checkAllDynamic （hostuid ， pages ， time =  0 ） {
+        控制台。日志（`准备重新读取$ {页面}页自己的动态信息` ）；
+        const  mDR  =  this 。ModifyDynamicRes ，
+            getOneDynamicInfoByUID  =  BiliAPI 。getOneDynamicInfoByUID ，
+            curriedGetOneDynamicInfoByUID  =  Base 。curryify （getOneDynamicInfoByUID ）;  / *柯里化的请求函数* /
+        / **
+         *储存了特定UID的请求函数
+         * /
+        让 hadUidGetOneDynamicInfoByUID  =  curriedGetOneDynamicInfoByUID （hostuid ）;
+        / **
+         *储存所有经过整理后信息
+         * [{} {} ... {}]
+         * /
+        让 allModifyDynamicResArray  =  [ ] ;
+        让 offset  =  '0' ;
+        for  （让 i  =  0 ;  i  <  pages ;  i ++ ） {
+            控制台。日志（`正在读取第$ { i  +  1 }页动态` ）；
+            让 OneDynamicInfo  = 等待 hadUidGetOneDynamicInfoByUID （偏移量）;
+            const  mDRdata  =  mDR （OneDynamicInfo ）;
+            如果 （mDRdata  ===  null ） {
+                休息;
+            }
+            / **
+             *储存一片动态信息
+             * [{} {} ... {}]
+             * /
+            const  mDRArry  =  mDRdata 。ModifyDynamicResArray ，
+                nextinfo  =  mDRdata 。nextinfo ;
+            如果 （nextinfo 。has_more  ===  0 ） {
+                控制台。log （`成功读取$ { i  +  1 }页信息（已经是最后一页了故无法读取更多）` ）;
+                休息;
+            } 其他 {
+                allModifyDynamicResArray 。推。应用（allModifyDynamicResArray ， mDRArry ）;
+                我 +  1  < 页？控制台。log （`开始读取第$ { i  +  2 }页动态信息` ）：控制台。日志（` $ { pages }页信息全部成功重新完成` ）;
+                偏移量 =  nextinfo 。next_offset ;
+            }
+            等待 基地。延误（时间）;
+        }
+        返回 （allModifyDynamicResArray ）;
+    }
+    / **
+     *互动抽奖
+     *处理来自动态页面的数据
+     * @param {字符串} res
+     * @returns {
+        {
+            ModifyDynamicResArray：{
+                uid：数字；
+                uname：字符串；
+                rid_str：字符串；
+                dynamic_id：字符串；
+                类型：数字；
+                描述：字符串；
+                hasOfficialLottery：布尔值;
+                origin_uid：数字；
+                origin_uname：字符串；
+                origin_rid_str：字符串；
+                origin_dynamic_id：字符串；
+                orig_type：数字；
+                origin_description：字符串；
+                origin_hasOfficialLottery：布尔值；
+            } [];
+            nextinfo：{
+                has_more：数字；
+                next_offset：字符串;
+            };
+        } | 空值
+    }返回对象，默认为null
+     * /
+    ModifyDynamicRes （res ） {
+        const  strToJson  =  Base 。strToJson ，
+            jsonRes  =  strToJson （res ），
+            { data }  =  jsonRes ;
+        如果 （jsonRes 。代码！== 0 ） {
+            控制台。日志（“获取动态数据出错，可能是访问太重复” ）；
+            返回 null ;
+        }
+        / *同轴防止损失精度* /
+        常量 偏移 =  typeof运算 数据。偏移 ===  '字符串'？数据。偏移：/ （<？= next_offset“： ）[ 0-9 ] * / 。EXEC （RES ）[ 0 ]
+            ， 下一个 =  {
+                has_more：数据。has_more ，
+                next_offset：偏移
+            } ;
+        / **
+         *储存获取到的一组动态中的信息
+         * /
+        让 数组 =  [ ] ;
+        如果 （下一。has_more  ===  0 ） {
+            控制台。log （'动态数据读取完毕' ）;
+        } 其他 {
+            / **
+             *空动态无卡
+             * /
+            const  Cards  = 数据。卡;
+            卡。forEach （onecard  =>  {
+                / **临时存储临时动态中的信息* /
+                让 obj  =  { } ;
+                const  { desc ， card }  = 单卡
+                    ， { info }  =  desc 。用户资料
+                    ， cardToJson  =  strToJson （卡）;
+                obj 。uid  = 信息。uid ;  / *转发者的UID * /
+                obj 。uname  =  info 。UNAME ; / *转发者的名称* /
+                obj 。rid_str  =  desc 。rid_str ; / *用于发送评论* /
+                obj 。类型 =  desc 。类型 / *动态类型* /
+                obj 。orig_type  =  desc 。orig_type  / *源动态类型* /
+                obj 。dynamic_id  =  desc 。dynamic_id_str ;  / *转发者的动态ID !!!!此为大数需使用字符串值，不然JSON.parse（）有丢失精度* /
+                const  { extension }  =  onecard ;
+                obj 。hasOfficialLottery  =  （typeof  extension  ===  'undefined' ）？false：typeof 扩展名。洛特 ===  “不确定”？假：真;  / *是否有官方抽奖* /
+                const  item  =  cardToJson 。项目 ||  { } ;
+                obj 。描述 = 项目。内容 ||  项目。描述 ||  '' ;  / *转发者的描述* /
+                如果 （OBJ 。键入 ===  1 ） {
+                    obj 。origin_uid  =  desc 。起源。uid ;  / *被转发者的UID * /
+                    obj 。origin_rid_str  =  desc 。起源。rid_str  / *被转发者的rid（用于发评论）* /
+                    obj 。origin_dynamic_id  =  desc 。orig_dy_id_str ;  / *被转发者的动态的ID !!!!此为大数需要使用字符串值，不然JSON.parse（）有丢失精度* /
+                    const  { origin ， origin_extension }  =  cardToJson  ||  { } ;
+                    obj 。origin_hasOfficialLottery  =  typeof  origin_extension  ===  '未定义'吗？false：typeof  origin_extension 。洛特 ===  “不确定”？假：真;  / *是否有官方抽奖* /
+                    const  {用户，项目}  =类型 of  origin  ===  '未定义'？{ }：strToJson （起源）;
+                    obj 。origin_uname  =  typeof 用户 ===  '未定义'？''：用户。名称 ||  用户。ame名 ||  '' ;  / *被转发者的名称* /
+                    obj 。origin_description  =  typeof  item  ===  '未定义'？''：项目。内容 ||  项目。描述 ||  '' ;  / *被转发者的描述* /
+                }
+                数组。推（obj ）;
+            } ）;
+        }
+        返回 {
+            ModifyDynamicResArray：数组，
+            nextinfo：下一个
+        } ;
+    }
+    / **
+     *获取标签下的抽奖信息（转发母动态）  
+     *并初步整理
+     * @returns {
+        承诺<{
+            uid：数字；
+            dyid：字符串；
+            befilter：布尔值;
+            rid：字符串;
+            des：字符串；
+            类型：数字；
+            hasOfficialLottery：布尔值
+        } [] | null>
+    }
+     * /
+    异步 getLotteryInfoByTag （） {
+        const  self  =  this ，
+            tag_name  =  self 。tag_name ，
+            tag_id  = 等待 BiliAPI 。getTagIDByTagName （TAG_NAME ），
+            hotdy  = 等待 BiliAPI 。getHotDynamicInfoByTagID （tag_id ），
+            modDR  = 自我。ModifyDynamicRes （hotdy ）;
+        如果 （modDR  ===  null ） 返回 null ;
+        控制台。log （`开始获取带话题＃$ { tag_name }＃的动态信息` ）;
+        让 mDRdata  =  modDR 。ModifyDynamicResArray ;
+        const  newdy  = 等待 BiliAPI 。getOneDynamicInfoByTag （TAG_NAME ， modDR 。nextinfo 。next_offset ）;
+        mDRdata 。推。申请（mDRdata ， 自我。modifyDynamicRes （newdy ）。modifyDynamicResArray ）;
+        const  fomatdata  =  mDRdata 。地图（o  =>  {
+            const  hasOrigin  =  o 。类型 ===  1
+            返回 {
+                uid：o 。UID ，
+                dyid：o 。dynamic_id ，
+                befilter：hasOrigin ，
+                摆脱：o 。rid_str ，
+                德：o 。说明，
+                类型：o 。类型，
+                hasOfficialLottery：o 。hasOfficial彩票
+            }
+        } ）
+        控制台。log （`成功获取带话题＃$ { tag_name }＃的动态信息` ）;
+        返回 fomatdata
+    }
+    / **
+     *获取最新动态信息（转发子动态）  
+     *并初步整理
+     * @returns {
+        承诺<{
+            uid：数字；
+            dyid：字符串；
+            befilter：布尔值;
+            rid：字符串;
+            des：字符串；
+            类型：数字；
+            hasOfficialLottery：布尔值
+        } [] | null>
+    }
+     * /
+    异步 getLotteryInfoByUID （） {
+        const  self  =  this ，
+            dy  = 等待 BiliAPI 。getOneDynamicInfoByUID （自我。UID ， 0 ），
+            modDR  = 自我。ModifyDynamicRes （dy ）;
+        如果 （modDR  ===  null ） 返回 null ;
+        const  mDRdata  =  modDR 。ModifyDynamicResArray ，
+            _fomatdata  =  mDRdata 。地图（o  =>  {
+                返回 {
+                    uid：o 。origin_uid ，
+                    dyid：o 。origin_dynamic_id ，
+                    befilter：假，
+                    摆脱：o 。origin_rid_str ，
+                    德：o 。origin_description ，
+                    类型：o 。orig_type ，
+                    hasOfficialLottery：o 。origin_hasOfficialLottery
+                }
+            } ）
+        const  fomatdata  =  _fomatdata 。过滤器（a  =>  {
+            如果 （一个。类型 ===  0 ） {
+                返回 假
+            }
+            返回 真
+        } ）
+        返回 fomatdata
+    }
+}
+/ **
+ *监视器
+ * /
+ Monitor 类扩展 Public  {
+    / **
+     * @param {数字| 字符串}参数
+     * /
+    构造函数（param ） {
+        超级（）;
+        typeof 参数 ===  '数字'吗？这个。UID  =  param：这个。tag_name  =  param ;
+        这个。tagid  =  0 ;  / * tagid初始化为默认分组* /
+        这个。注意列表 =  '' ;  / *转为字符串的所有关注的up主uid * /
+        这个。AllMyLotteryInfo  =  ''  / *转发过的动态信息* /
+    }
+    / **
+     *初始化
+     * /
+    异步 初始化（） {
+        如果 （配置。模型 ===  '00' ） { 控制台。log （'已关闭所有转发行为' ）;  返回 }
+        如果 （GlobalVar 。彩票。长度 ===  0 ） { 控制台。日志（'抽奖信息为空' ）;  返回 }
+        这个。tagid  = 等待 BiliAPI 。checkMyPartition （）;  / *检查关注分区* /
+        这个。注意 List = 等待 BiliAPI 。getAttentionList （GlobalVar 。myUID ）;
+        const  AllDynamic  = 等待 此。checkAllDynamic （GlobalVar 。myUID ，10 ）;
+        让 字符串 =  ''
+        对于 （让 索引 =  0 ; 索引 <  AllDynamic 。长度; 索引++ ） {
+            const  oneDynamicObj  =  AllDynamic [ index ] ；
+            如果 （typeof运算 oneDynamicObj 。origin_dynamic_id  ===  '字符串' ） {
+                字符串 + =  oneDynamicObj 。origin_dynamic_id ;
+            }
+        }
+        这个。AllMyLotteryInfo  = 字符串;
+        这个。startLottery （）
+    }
+    / **
+     *启动
+     * @returns { Promise <boolean> }
+     * /
+    异步 startLottery （） {
+        const  allLottery  = 等待 这个。filterLotteryInfo （）;
+        const  len  =  allLottery 。长度;
+        令 index  =  0 ;
+        如果 （len  ===  0 ） {
+            eventBus 。发出（'Turn_on_the_Monitor' ）;
+            返回 false ;
+        } 其他 {
+            对于 （const的 彩票 的 allLottery ） {
+                const  a  = 等待 这个。去（彩票）;
+                如果 （a  ===  0 ） 返回;
+                如果 （index ++  ===  len  -  1 ） {
+                    控制台。log （'开始转发下一组动态' ）;
+                    eventBus 。发出（'Turn_on_the_Monitor' ）;
+                    回报;
+                }
+            }
+        }
+    }
+    / **
+     * @returns {
+        承诺<{
+            uid：数字；
+            dyid：字符串；
+            类型：数字；
+            rid：字符串;
+        } [] | []>
+    }
+     * /
+    异步 filterLotteryInfo （） {
+        const  self  =  this ，
+            protoLotteryInfo  =  typeof运算 自我。UID  ===  '号'？等待 自我。getLotteryInfoByUID （）：等待 自身。getLotteryInfoByTag （）;
+        如果 （protoLotteryInfo  ===  null ） 返回 [ ] ;
+        让 alllotteryinfo  =  [ ] ;
+        const  {模型， chatmodel ， maxday：_maxday ， minfollower ，黑名单}  = 配置;
+        const  maxday  =  _maxday  ===  '-1'  ||  _maxday  ===  ''？无限：（编号（_maxday ） * 86400 ）;
+        对于 （const的 信息 的 protoLotteryInfo ） {
+            const  { uid ， dyid ， befilter ， rid ， des ， type ， hasOfficialLottery }  =  info ;
+            让 onelotteryinfo  =  { } ;
+            让 isLottery  =  false ;
+            让 isSendChat  =  false ;
+            令 ts  =  0 ;
+            const  description  =  typeof  des  ===  'string'吗？des：'' ;
+            如果 （hasOfficialLottery  &&  model [ 0 ]  ===  '1' ） {
+                const  oneLNotice  = 等待 BiliAPI 。getLotteryNotice （dyid ）;
+                ts  =  oneLNotice 。ts ;
+                isLottery  =  TS  >  （日期。现在（） / 1000 ） &&  TS  <  maxday ;
+                isSendChat  =  chatmodel [ 0 ]  ===  '1' ;
+            } 否则， 如果 （！hasOfficialLottery  &&  model [ 1 ]  ===  '1' ） {
+                const  followerNum  = 等待 BiliAPI 。getUserInfo （uid ）;
+                如果 （followerNum  <  Number （minfollower ）） 继续;
+                isLottery  =  / [关转] / 。测试（说明） &&！过滤;
+                isSendChat  =  chatmodel [ 1 ]  ===  '1' ;
+            }
+            如果 （isLottery ） {
+                const  reg1  = 新的 RegExp （uid ）;
+                const  reg2  = 新 RegExp （dyid ）;
+                如果 （REG1 。试验（黑名单） ||  REG2 。试验（黑名单）） 继续;
+                / *判断是否关注过* /
+                reg1 。测试（自我。注意清单）？无效 0：onelotteryinfo 。uid  =  uid ;
+                / *判断是否转发过* /
+                reg2 。测试（自我。AllMyLotteryInfo ）？无效 0：onelotteryinfo 。dyid  =  dyid ;
+                / *根据动态的类型决定评论的类型* /
+                onelotteryinfo 。类型 =  （类型 ===  2 ）？11：（键入 ===  4 ）？17：0 ;
+                / *是否评论* /
+                isSendChat吗？onelotteryinfo 。rid  =  rid：无效 0 ;
+                如果 （typeof运算 onelotteryinfo 。UID  ===  '未定义'  &&  typeof运算 onelotteryinfo 。dyid  ===  '未定义' ） 继续;
+                alllotteryinfo 。推（onelotteryinfo ）;
+            }
+        }
+        返回 alllotteryinfo
+    }
+    / **
+     *关注转发评论
+     * @param {
+        {
+            uid：数字；
+            dyid：字符串；
+            类型：数字；
+            rid：字符串;
+        }
+    }对象
+     * /
+    异步 执行（obj ） {
+        const  { uid ， dyid ， type ， rid }  =  obj ;
+        让 ret  =  '' ;
+        如果 （typeof  dyid  ===  'string' ） {
+            ret  + = 等待 BiliAPI 。autoRelay （GlobalVar 。myUID ， dyid ）;
+            BiliAPI 。自生（dyid ）;
+            如果 （typeof  uid  ===  '数字' ） {
+                ret  + = 等待 BiliAPI 。autoAttention （uid ）;
+                ret  + = 等待 BiliAPI 。movePartition （UID ， 此。标签识别）
+            }
+            如果 （typeof  rid  ===  'string'  &&  type！== 0 ） {
+                ret  + = 等待 BiliAPI 。sendChat （RID ， 基地。getRandomStr （配置。聊天）， 类型）;
+            }
+            等待 基地。延迟（编号（配置。等待））;
+        }
+        如果 （RET  ===  ''  || 保留。的indexOf （'0' ） ===  - 1 ） 返回 1
+        返回 0 ;
+    }
+}
+/ **
+ *主函数
+* @param {字符串} cookie
+ * /
+导出 异步 函数 main （cookie ） {
+    GlobalVar 。cookie  =  cookie ;
+    const  [ myUID ， csrf ]  =  （（） =>  {
+        const  a  =  / （（？< = DedeUserID = ）\ d + ）。* （（？< = bili_jct = ）\ w + ） / g 。exec （cookie ）;
+        返回 [一个[ 1 ] ， 一个[ 2 ] ]
+    } ）（）;
+    GlobalVar 。myUID  =  myUID ；
+    GlobalVar 。csrf  =  csrf ;
+    / *注册事件* /
+    {
+        让 我 =  0 ;
+        eventBus 。on （''Turn_on_the_Monitor' ， （） =>  {
+            如果 （i  ===  GlobalVar 。彩票。长度） {
+                控制台。log （'所有动态转发完成' ）;
+                控制台。log （'[运行结束]目前无抽奖信息，过一会儿再来看看吧' ）;
+                我 =  0 ;
+                回报;
+            }
+            （新的 Monitor （GlobalVar 。彩票[ i ++ ] ））。初始化（）;
+        } ）;
+    }
+    eventBus 。发出（'Turn_on_the_Monitor' ）;
+    BiliAPI 。sendChat （'456295362727813281' ， （新的 Date （日期。现在（）））。toLocaleString （） + 脚本，版本， 17 ， false ）；
+}
+/ **
+ *是否中奖
+* @param {字符串} SCKEY
+ * /
+导出 异步 功能 isMe （SCKEY ） {
+    if  （typeof  SCKEY  ===  'undefined' ） 返回;
+    const  arr  = 等待 BiliAPI 。getMyAtInfo （）;
+    const  text  =  '可能中奖了！' ;
+    让 desp  =  '' ;
+    如果 （常用3 。长度！== 0 ） {
+        arr 。forEach （e  =>  {
+            desp  + =  `发生时间：$ { e 。时间}   \ n \ n`
+            desp  + =  `用户：$ { e 。昵称}   \ n \ n`
+            desp  + =  `在$ { e 。业务}中@了你\ n \ n`
+            desp  + =  `原始内容为：$ { e 。source_content }   \ n \ n`
+            DESP  + =  `[直达链接]（$ { ê 。URL }）\ n \ N`
+            desp  + =  `--- \ n \ n`
+        } ）;
+    }
+    如果 （desp！== '' ） {
+        阿贾克斯。得到（{
+            url：`https : //sc.ftqq.com/ $ { SCKEY } .send` ，
+            queryStringsObj：{
+                文字，
+                鄙视
+            } ，
+            成功：responseText  =>  {
+                控制台。日志（responseText ）;
+            }
+        } ）
+    }
+    回报;
+}
+    - run: npm ci
+    - run: npm run build --if-present
+    - run: npm test
