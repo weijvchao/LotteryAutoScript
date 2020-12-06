@@ -11,4 +11,3 @@ COOKIE格式:`DedeUserID=;·SESSDATA=;·bili_jct=;·`(点号表示空格 **必�
 3. 随便改一下再作一次提交便自动运行
 ## 效果
 ![效果](https://ftp.bmp.ovh/imgs/2020/11/87d483cea98563fa.png)
-
