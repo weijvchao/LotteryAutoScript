@@ -1042,6 +1042,7 @@ export async function main(cookie) {
                 console.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧');
                 i = 0;
                 return;
+                
             }
             (new Monitor(GlobalVar.Lottery[i++])).init();
         });
